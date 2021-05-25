@@ -2,13 +2,9 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios'
 
-function Book({ name, treatment_id, price, duration, closeModal }) {
+function Book({ name, treatment_id, price, duration, closeModal, rebook }) {
 
-    // Stores user id fetched from db
     const [user_id, setUser_id] = useState()
-
-    // Get token from local storage
-    const token = localStorage.getItem('jwt')
 
     // Replace with treatments-table from db
     const [bookingDetails] = useState({
@@ -17,24 +13,32 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
     });
 
     // Form input states
-    const [nameInput, setNameInput] = useState()
-    const [dateInput, setDateInput] = useState()
-    const [timeInput, setTimeInput] = useState()
-    const [telInput, setTelInput] = useState()
+    const [nameInput, setNameInput] = useState('')
+    const [dateInput, setDateInput] = useState('')
+    const [timeInput, setTimeInput] = useState('')
+    const [telInput, setTelInput] = useState('')
 
     // List of all possible times
-    const [possibleTimes, setPossibleTimes] = useState([
+    const [possibleTimes] = useState([
         "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
         "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
         "15:00", "15:30", "16:00"
     ])
 
-    const [unavailableTimes, setUnavailableTimes] = useState([])
-
     // Gets set with possible times with respect to unavailable times
     const [availableTimes, setAvailableTimes] = useState([])
 
+    // Get token from local storage
+    const token = localStorage.getItem('jwt')
+
     useEffect(() => {
+
+        // If modal is used in rebook, prepare with same name and tel values
+        if (rebook != null) {
+            setNameInput(rebook.name)
+            setTelInput(rebook.tel)
+        }
+
         // Set date to current locale in yyyy-mm-dd
         const d = new Date()
         const currentDate = d.toLocaleDateString()
@@ -44,11 +48,10 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
         axios.get(`http://localhost:1337/bookings?date=${currentDate}`)
             .then((response) => {
                 console.log(response)
-                const newUnavailableTimes = response.data.map(data => data.time)
-                setUnavailableTimes(newUnavailableTimes)
+                const unavailableTimes = response.data.map(data => data.time)
 
                 // Set available times by filtering out possible times with unavailable times
-                const newAvailableTimes = possibleTimes.filter(possibleTime => !newUnavailableTimes.includes(possibleTime))
+                const newAvailableTimes = possibleTimes.filter(possibleTime => !unavailableTimes.includes(possibleTime))
                 setAvailableTimes(newAvailableTimes)
 
                 // Set timeInput to first of possible time
@@ -71,7 +74,6 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
             .catch(error => {
                 console.log(error)
             })
-
     }, [])
 
     // Input onChange handlers
@@ -87,11 +89,10 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
         axios.get(`http://localhost:1337/bookings?date=${inputValue}`)
             .then((response) => {
                 console.log(response)
-                const newUnavailableTimes = response.data.map(data => data.time)
-                setUnavailableTimes(newUnavailableTimes)
+                const unavailableTimes = response.data.map(data => data.time)
 
                 // Set available times by filtering out possible times with unavailable times
-                const newAvailableTimes = possibleTimes.filter(possibleTime => !newUnavailableTimes.includes(possibleTime))
+                const newAvailableTimes = possibleTimes.filter(possibleTime => !unavailableTimes.includes(possibleTime))
                 setAvailableTimes(newAvailableTimes)
 
                 // Set timeInput to first of possible time
@@ -130,17 +131,33 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
             user: user_id
         }
 
-        // Submit booking data to db
-        axios.post('http://localhost:1337/bookings', bookingData)
-            .then((response) => {
-                console.log(response)
+        //Submit data to db
 
-                // Update page to reload available times
-                window.location.reload()
-            })
-            .catch((err) => {
-                console.log(err)
-            })
+        if (rebook) {
+            // Update booking
+            axios.put(`http://localhost:1337/bookings/${rebook.id}`, bookingData)
+                .then((response) => {
+                    console.log(response)
+
+                    // Refresh page
+                    window.location.reload()
+                })
+                .catch((err) => {
+                    console.log(err)
+                })
+        } else {
+            // Create booking
+            axios.post('http://localhost:1337/bookings', bookingData)
+                .then((response) => {
+                    console.log(response)
+
+                    // Refresh page
+                    window.location.reload()
+                })
+                .catch((err) => {
+                    console.log(err)
+                })
+        }
     }
 
     // Render modal to portal
@@ -148,7 +165,7 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
 
         <div className='modal-overlay'>
             <div className='modal flex justify-center rounded-md shadow-md'>
-                
+
                 {/* Form to book treatment*/}
                 <form onSubmit={bookTreatment} className="flex flex-col my-4 mx-5">
                     <h2 className="text-xl font-semibold pl-2">Boka {duration} min {name} {price}kr</h2>
@@ -183,7 +200,7 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
                     >
                         {/* List options of available times */}
                         {availableTimes.map((availableTime) =>
-                            <option value={availableTime}>
+                            <option value={availableTime} key={availableTime}>
                                 {availableTime}
                             </option>
                         )}
@@ -196,7 +213,7 @@ function Book({ name, treatment_id, price, duration, closeModal }) {
                         type='tel'
                         onChange={telChange}
                         value={telInput}
-                        className="border-2 border-gray-200 focus:outline-none py-1 px-4 rounded-lg"    
+                        className="border-2 border-gray-200 focus:outline-none py-1 px-4 rounded-lg"
                     />
 
                     {/* Submit */}
