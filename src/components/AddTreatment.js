@@ -48,6 +48,8 @@ function AddTreatment() {
             })
     }
 
+    //använd en function for handle ändringarna 
+    //upprepande kod
     // onChange handlers for form inputs:
     function categoryChange(e) {
         setCategory(e.target.value)
